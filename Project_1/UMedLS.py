@@ -11,7 +11,7 @@ class UMedLS():
                  port='3307',
                  user='umls',
                  password='umls',
-                 database='umls2021'):
+                 database='umls2020'):
         # connect to the server and save mysql object at attribute
         self.connection = mysql.connector.connect(host=host, port=port, user=user, password=password, database=database)
         self.cursor = self.connection.cursor()
@@ -105,23 +105,38 @@ select *
         if level > 40:
             return ''
 
+        #if cur_node == ref_node:
+        #    print(level)
+        #    print(3 < level <= 40)
+
+
         if (3 < level <= 40) and (cur_node == ref_node):
-            return cur_node + ref_node
+            return cur_node
 
         # if above two conditions don't satisfy then explore the graph
 
-        # get child nodes
-        res = self.extract_children('MRREL', cur_node)
-        children = res.loc[:, 'CUI2'].values.tolist()
+        # get child and parent nodes
+        children = self.extract_children('MRREL', cur_node).loc[:, 'CUI2'].values.tolist()
+        parents = self.extract_parents('MRREL', cur_node).loc[:, 'CUI2'].values.tolist()
 
-        # explore every node
+        # explore every child node
         while not children == []:
             child = children.pop(0)
             cycle = self.dfs(ref_node, child, level + 1)
 
             # if we find a cycle then return
-            if cycle != '' and (level > 3):
-                return cur_node + cycle
+            if cycle != '':
+                print(cycle)
+                return cur_node + ' ' + cycle
+
+        # explore every parent node
+        while not parents == []:
+            parent = parents.pop(0)
+            cycle = self.dfs(ref_node, parent, level+1)
+
+            # if we find a cycle then return
+            if cycle != '':
+                return cur_node + ' ' + cycle
 
         return ''
 
@@ -130,11 +145,15 @@ select *
 umls_obj = UMedLS()
 
 # try searching
-search_d = umls_obj.find_disease('MRCONSO', 'breast cancer')
-search_cui = umls_obj.find_cui('MRCONSO', 'C0678222')
-search_par = umls_obj.extract_parents('MRREL', 'C0006826')
-search_chd = umls_obj.extract_children('MRREL', 'C0006826')
+#search_d = umls_obj.find_disease('MRCONSO', 'breast cancer')
+#search_cui = umls_obj.find_cui('MRCONSO', 'C0678222')
+#search_par = umls_obj.extract_parents('MRREL', 'C0006826')
+#search_chd = umls_obj.extract_children('MRREL', 'C0006826')
 
 # Test functions
-cui = 'C0002642'  # Amoeba genus
+cui = 'C2939428'  # Amoeba genus
 path_ = umls_obj.dfs(cui, cui, 0)
+print(path_)
+
+# list of starting nodes for checking cycles
+queries = []
