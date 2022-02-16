@@ -126,7 +126,6 @@ select *
 
             # if we find a cycle then return
             if cycle != '':
-                print(cycle)
                 return cur_node + ' ' + cycle
 
         # explore every parent node
