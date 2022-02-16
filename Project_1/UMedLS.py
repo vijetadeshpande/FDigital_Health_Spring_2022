@@ -105,13 +105,7 @@ select *
         if level > 40:
             return ''
 
-        #if cur_node == ref_node:
-        #    print(level)
-        #    print(3 < level <= 40)
-
-
         if (3 < level <= 40) and (cur_node == ref_node):
-            print('found match')
             return cur_node
 
         # if above two conditions don't satisfy then explore the graph
