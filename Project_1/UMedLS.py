@@ -15,6 +15,8 @@ class UMedLS():
         # connect to the server and save mysql object at attribute
         self.connection = mysql.connector.connect(host=host, port=port, user=user, password=password, database=database)
         self.cursor = self.connection.cursor()
+        self.depth_ub = 40
+        self.depth_lb = 3
 
         return
 
@@ -38,7 +40,7 @@ class UMedLS():
 
         return res
 
-    def find_disease(self, table, disease):
+    def search_term(self, table, disease):
         query = """
 select * 
   from 
@@ -55,7 +57,7 @@ select *
 
         return results
 
-    def find_cui(self, table, cui):
+    def search_cui(self, table, cui):
         query = """
 select distinct STR 
   from SAMPLE_TABLE
@@ -102,10 +104,10 @@ select *
         return results
 
     def dfs(self, ref_node, cur_node, level):
-        if level > 40:
+        if level > self.depth_ub:
             return ''
 
-        if (3 < level <= 40) and (cur_node == ref_node):
+        if (self.depth_lb < level <= self.depth_ub) and (cur_node == ref_node):
             return cur_node
 
         # if above two conditions don't satisfy then explore the graph
@@ -139,12 +141,15 @@ select *
 #umls_obj = UMedLS()
 
 # try searching
-#search_d = umls_obj.find_disease('MRCONSO', 'breast cancer')
-#search_cui = umls_obj.find_cui('MRCONSO', 'C0678222')
+#search_d = umls_obj.search_term('MRCONSO', 'breast cancer')
+#search_cui = umls_obj.search_cui('MRCONSO', 'C0678222')
 #search_par = umls_obj.extract_parents('MRREL', 'C0006826')
 #search_chd = umls_obj.extract_children('MRREL', 'C0006826')
 
 # Test functions
-#cui = 'C0003850'  # Amoeba genus
+#cui = 'C0017638'
 #path_ = umls_obj.dfs(cui, cui, 0)
 #print(path_)
+
+# close connection
+#umls_obj.connecion.close()
