@@ -1,9 +1,10 @@
 import json
-
+import sys 
+sys.path.insert(1, r'/Users/vijetadeshpande/Downloads/UMass Lowell - Courses/Spring 2022/Foundations in Digital Health/FDigital_Health_Spring_2022/Project_1')
 import pandas as pd
 import spacy
 from quickumls import QuickUMLS
-from Project_1.UMedLS import UMedLS
+from UMedLS import UMedLS
 from copy import deepcopy
 import os
 from tqdm import tqdm
@@ -14,8 +15,8 @@ class AhsanSBDH(UMedLS):
     def __init__(self, dir_data = r'/Users/vijetadeshpande/Documents/GitHub/MIMIC-SBDH'):
         UMedLS.__init__(self)
 
-        self.keyword = pd.read_csv(os.path.join(dir_data, 'MIMIC-SBDH-keywords.csv'))
-        self.occurrence = pd.read_csv(os.path.join(dir_data, 'MIMIC-SBDH.csv'))
+        self.keyword = pd.read_csv(os.path.join(dir_data, 'MIMIC-SBDH-keywords.csv')).dropna()
+        self.occurrence = pd.read_csv(os.path.join(dir_data, 'MIMIC-SBDH.csv')).dropna()
 
         return
 
@@ -76,12 +77,14 @@ class AhsanSBDH(UMedLS):
         """
 
         # collect all terms identified by quickUMLS
-        terms_found_by_quickumls, ngram_to_idx = [], {}
+        terms_found_by_quickumls, ngram_to_idx, idx_to_ngram = [], {}, {}
         for idx, ent in enumerate(reference_set):
             terms_found_by_quickumls.append(ent['ngram'])
             ngram_to_idx[ent['ngram']] = idx
+            idx_to_ngram[idx] = ent['ngram']
 
         #
+        remove_from_ref = []
         for idx, ent in enumerate(entities):
             if not ent['ngram'] in terms_found_by_quickumls:
                 #TODO: current UMLS class code does not handle approximate search facility. It needs exact match.
@@ -96,9 +99,15 @@ class AhsanSBDH(UMedLS):
                 ent['similarity'] = reference_set[ngram_to_idx[ent['ngram']]]['similarity']
 
                 # pop from the reference set to avoid repetition
-                reference_set.pop(ngram_to_idx[ent['ngram']])
+                remove_from_ref.append(ngram_to_idx[ent['ngram']])
 
-        return entities, reference_set
+        #
+        reference_set_out = []
+        for idx, ent in enumerate(reference_set):
+            if not idx in remove_from_ref:
+                reference_set_out.append(ent)
+
+        return entities, reference_set_out
 
 
 class QuickUMLSPass(AhsanSBDH):
@@ -107,6 +116,15 @@ class QuickUMLSPass(AhsanSBDH):
         AhsanSBDH.__init__(self)
 
         self.matcher = QuickUMLS(quickumls_fp = dir_quickumls)
+
+        return
+
+    def clean_umls_entities(self, ents):
+
+        for ent in ents:
+            ent['semtypes'] = list(ent['semtypes'])
+
+        return ents
 
     def get_umls_entities(self, text):
 
@@ -142,6 +160,7 @@ class QuickUMLSPass(AhsanSBDH):
         # get all type of entities in the text
         ents_ = self.get_umls_entities(text)
         ents_ = self.reduce_matches(ents_)
+        ents_ = self.clean_umls_entities(ents_)
         ents_sbdh = self.get_sbdh_entities(text, mimic_row_identifier)
 
         # link all entities in the UMLS
@@ -155,7 +174,7 @@ class QuickUMLSPass(AhsanSBDH):
 
     def annotate_document(self, text, mimic_row_identifier):
 
-        # find entities and their locaiton
+        # find entities and their location
         entities = self.get_entities(text, mimic_row_identifier)
 
         return {'text': text, 'entities': entities}
@@ -163,52 +182,76 @@ class QuickUMLSPass(AhsanSBDH):
     def filter_data(self, df):
 
         # MIMIC-SBDH documents
-        df_ref = self.occurrence
-        row_ids = df_ref.loc[:, 'row_id'].unique()
+        row_ids = self.occurrence.loc[:, 'row_id'].unique()
+        row_idx = []
+        for row_id in row_ids:
+            idx = df.loc[df.loc[:, 'ROW_ID'] == row_id, :].index.values.tolist()
+            row_idx += idx
 
-        #
-        df = df.loc[row_ids, :]
+        # filter mimic accordinly
+        df = df.loc[row_idx, :].reset_index(drop=True)
 
         return df
 
-    def annotate_documents(self, df, filter_data = True):
+    def annotate_documents(self, df, filter_data = True, annotated_data = {}):
 
         #
         if filter_data:
             df = self.filter_data(df)
 
-        annotated_data = {}
         for row in tqdm(df.index):
             doc = df.loc[row, 'TEXT']
-            row_id = df.loc[row, 'ROW_ID']
-            doc_annot = self.annotate_document(doc, row_id)
+            row_id = int(df.loc[row, 'ROW_ID'])
 
-            # other features of the medical note
-            for col in df.columns:
-                doc_annot[col] = df.loc[row, col]
+            continue_ = True
+            if str(row_id) in annotated_data:
+                for doc_prev in annotated_data[str(row_id)]:
+                    if doc_prev['text'] == doc:
+                        continue_ = False
+                        break
 
-            #
-            if not row_id in annotated_data:
-                annotated_data[row_id] = [doc_annot]
-            else:
-                annotated_data[row_id].append(doc_annot)
+            if continue_:
+
+                # annotation
+                doc_annot = self.annotate_document(doc, row_id)
+
+                # other features of the medical note
+                doc_annot['CHARTDATE'] = str(df.loc[row, 'CHARTDATE'])
+                doc_annot['SUBJECT_ID'] = int(df.loc[row, 'SUBJECT_ID'])
+                doc_annot['HADM_ID'] = int(df.loc[row, 'HADM_ID'])
+
+                #
+                if not row_id in annotated_data:
+                    annotated_data[str(row_id)] = [doc_annot]
+                else:
+                    annotated_data[str(row_id)].append(doc_annot)
+
+                # write file every 500th iteration
+                if (row%500) == 0:
+                    print('Saving collected results')
+                    with open('Data/mimic-sbdh-annotated.json', 'w') as f:
+                        json.dump(annotated_data, f, indent=4, sort_keys=True)
+
 
         return annotated_data
 
 
 #region Test the code
 
-data = pd.read_csv(r'/Users/vijetadeshpande/Downloads/BioNLP Lab/Datasets/EHR/mimic-iii-clinical-database-1.4/NOTEEVENTS.csv')
+#data = pd.read_csv(r'/Users/vijetadeshpande/Downloads/BioNLP Lab/Datasets/EHR/mimic-iii-clinical-database-1.4/NOTEEVENTS.csv', low_memory=False)
 #print(data.columns)
 #print(data.head())
 
+#with open('Data/mimic-sbdh-annotated_read.json', 'r') as f:
+#    annotated_docs = json.load(f)
+
 #record = data.loc[data.loc[:, 'ROW_ID'] == 5, 'TEXT']
 #text = record[0]
-qu_pass = QuickUMLSPass()
-data_anot = qu_pass.annotate_documents(data)
+#qu_pass = QuickUMLSPass()
+#data_anot = qu_pass.annotate_documents(data)#, annotated_data = annotated_docs)
 
 #
-with open('Data/mimic-sbdh-annotated.json', 'w') as f:
-    json.dump(data_anot, f, indent = 4, sort_keys = True)
+#with open('Data/mimic-sbdh-annotated.json', 'w') as f:
+#    json.dump(data_anot, f, indent = 4, sort_keys = True)
 
 #endregion
