@@ -1,0 +1,50 @@
+method: bayes
+metric:
+  goal: maximize
+  name: NER_f1-score
+parameters:
+  batch_size:
+    distribution: categorical
+    values:
+    - 4
+  dropout:
+    distribution: uniform
+    max: 0.2
+    min: 0
+  eval_every_steps:
+    distribution: categorical
+    values:
+    - 100
+  learning_rate:
+    distribution: uniform
+    max: 0.0007
+    min: 1e-06
+  max_train_steps:
+    distribution: categorical
+    values:
+    - 1000
+  num_train_epochs:
+    distribution: categorical
+    values:
+    - 10
+  pretrained_model:
+    distribution: categorical
+    values:
+    - dmis-lab/biobert-v1.1
+  scheduler_warmup_fraction:
+    distribution: categorical
+    values:
+    - 0.2
+  seed:
+    distribution: categorical
+    values:
+    - None
+  tokenizer:
+    distribution: categorical
+    values:
+    - dmis-lab/biobert-v1.1
+  weight_decay:
+    distribution: uniform
+    max: 1
+    min: 0
+program: SBDHExperiments.py
