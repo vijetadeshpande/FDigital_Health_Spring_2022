@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         "--debug",
-        default=True,
+        default=False,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )
@@ -267,4 +267,8 @@ def main():
 
 
 if __name__ == "__main__":
+
+    # set environment variable for gpu index we want to use
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
     main()

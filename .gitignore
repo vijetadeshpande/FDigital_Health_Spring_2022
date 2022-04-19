@@ -6,8 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# ignore json files
+*.json
+
 # ignore following paths
 Project_final/Data
+*/wandb
 
 # Distribution / packaging
 .Python
