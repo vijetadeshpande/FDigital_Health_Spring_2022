@@ -175,8 +175,8 @@ class SBDHTrainer():
                     loss_umls = self.criterion(logits_umls.permute(0, 2, 1), target_umls)
 
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
-                    predictions_umls = np.argmax(logits_umls.detach().cpu().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
+                    predictions_umls = np.argmax(logits_umls.cpu().detach().numpy(), axis=-1).tolist()
 
                 else:
                     # calculate loss
@@ -186,7 +186,7 @@ class SBDHTrainer():
                     loss_umls = torch.tensor(0.0).to(self.device)
 
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
                     predictions_umls = []
 
                 # update loss value
@@ -194,7 +194,7 @@ class SBDHTrainer():
 
                 # update evaluation metrics
                 metrics_sbdh = self.measure_performance(
-                    labels=target_sbdh.detach().numpy().tolist(),
+                    labels=target_sbdh.cpu().detach().numpy().tolist(),
                     predictions=predictions_sbdh
                 )
                 for metric in eval_results['metrics_sbdh']:
@@ -202,7 +202,7 @@ class SBDHTrainer():
 
                 if self.mtl:
                     metrics_umls = self.measure_performance(
-                        labels=target_umls.detach().numpy().tolist(),
+                        labels=target_umls.cpu().detach().numpy().tolist(),
                         predictions=predictions_umls
                     )
                     for metric in eval_results['metrics_umls']:
@@ -275,8 +275,8 @@ class SBDHTrainer():
                     loss_umls = self.criterion(logits_umls.permute(0, 2, 1), target_umls)
 
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
-                    predictions_umls = np.argmax(logits_umls.detach().cpu().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
+                    predictions_umls = np.argmax(logits_umls.cpu().detach().numpy(), axis=-1).tolist()
 
                 else:
                     # calculate loss
@@ -286,7 +286,7 @@ class SBDHTrainer():
                     loss_umls = torch.tensor(0.0).to(self.device)
 
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
                     predictions_umls = []
 
                 # back propagation
