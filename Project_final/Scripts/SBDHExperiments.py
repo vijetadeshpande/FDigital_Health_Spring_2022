@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         "--debug",
-        default=True,
+        default=False,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )
