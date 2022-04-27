@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--filepath_data",
         type=str,
-        default="preprocessed_data_version_2.json",
+        default="ahsan_preprocessed.json",
         help="Path of the preprocessed dataset",
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         "--debug",
-        default=False,
+        default=True,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )

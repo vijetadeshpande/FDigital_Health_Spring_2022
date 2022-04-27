@@ -8,6 +8,7 @@ from collections import Counter
 from random import shuffle
 import json
 from transformers import AutoTokenizer
+from sklearn.model_selection import train_test_split
 
 class MIMICDataLoader():
 
@@ -26,6 +27,8 @@ class MIMICDataLoader():
         # STEP 1: read data (only one file having three splits)
         with open(filepath_data, 'r') as f:
             data = json.load(f)
+        if 'train' not in data:
+            data = self.slice_data(data)
 
         # STEP 2: in addition to data, we need label maps i.e. a dict to convert
         # label text to an integer and an integer back to it's class text
@@ -110,11 +113,32 @@ class MIMICDataLoader():
 
         return len(id2label.keys())
 
+    def slice_data(
+            self,
+            list_data,
+    ):
+        train, test = train_test_split(
+            list_data,
+            test_size=0.3,
+        )
+        val, test = train_test_split(
+            test,
+            test_size=0.5,
+        )
+
+        dict_data = {
+            'train': train,
+            'validation': val,
+            'test': test,
+        }
+
+        return dict_data
+
 
 class MIMICDataset(Dataset):
     """
     This class takes list of data instances in a specific split (say train) and
-    returns tokenized form of the data when __getitemm__ is called.
+    returns tokenized form of the data when __getitem__ is called.
     """
 
     def __init__(

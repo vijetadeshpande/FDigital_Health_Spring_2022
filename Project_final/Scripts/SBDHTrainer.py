@@ -105,7 +105,8 @@ class SBDHTrainer():
             class_wise = classification_report(
                 y_true=labels[idx],
                 y_pred=y_hat,
-                output_dict=True
+                output_dict=True,
+                zero_division=0,
             )
 
             # get average value of f1
