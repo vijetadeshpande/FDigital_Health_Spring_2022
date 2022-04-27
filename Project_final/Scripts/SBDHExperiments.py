@@ -11,7 +11,6 @@ import wandb
 from SBDHData import MIMICDataLoader
 from SBDHModel import SBDHModel
 from SBDHTrainer import SBDHTrainer
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 def parse_args():
     """
@@ -269,6 +268,6 @@ def main():
 if __name__ == "__main__":
 
     # set environment variable for gpu index we want to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
     main()
