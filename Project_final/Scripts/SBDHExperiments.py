@@ -11,7 +11,7 @@ import wandb
 from SBDHData import MIMICDataLoader
 from SBDHModel import SBDHModel
 from SBDHTrainer import SBDHTrainer
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 def parse_args():
     """
@@ -130,7 +130,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=4,
+        default=2,
         help="Batch size (per device) for the training dataloader.",
     )
     parser.add_argument(
@@ -148,7 +148,7 @@ def parse_args():
     parser.add_argument(
         "--weight_decay",
         type=float,
-        default=0.001,
+        default=0.0,
         help="Weight decay to use.",
     )
     parser.add_argument(
@@ -166,13 +166,13 @@ def parse_args():
     parser.add_argument(
         "--eval_every_steps",
         type=int,
-        default=2,
+        default=4,
         help="Perform evaluation every n network updates.",
     )
     parser.add_argument(
         "--max_train_steps",
         type=int,
-        default=1000,
+        default=10000,
         help="Total number of training steps to perform. If provided, overrides num_train_epochs.",
     )
     parser.add_argument(

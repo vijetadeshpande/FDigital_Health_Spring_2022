@@ -142,16 +142,17 @@ class SBDHTrainer():
                 'f1-score': 0,
                 'precision': 0,
                 'recall': 0,
-                'accuracy': 0
+                'accuracy': 0,
             },
             'metrics_umls': {
                 'f1-score': 0,
                 'precision': 0,
                 'recall': 0,
-                'accuracy': 0
+                'accuracy': 0,
             },
         }
 
+        total_loss = 0
         with torch.no_grad():
             for idx, batch in enumerate(dataloader):
 
@@ -170,8 +171,8 @@ class SBDHTrainer():
                     # calculate loss
                     # @TODO: will need to check following line during code review
                     # (I have checked it once, changing shapes to match CrossEntropyLoss definition)
-                    # loss_sbdh = self.criterion(logits_sbdh.permute(0, 2, 1), target_sbdh)
-                    # loss_umls = self.criterion(logits_umls.permute(0, 2, 1), target_umls)
+                    loss_sbdh = self.criterion(logits_sbdh.permute(0, 2, 1), target_sbdh)
+                    loss_umls = self.criterion(logits_umls.permute(0, 2, 1), target_umls)
 
                     # compute predictions
                     predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
@@ -181,12 +182,15 @@ class SBDHTrainer():
                     # calculate loss
                     # @TODO: will need to check following line during code review
                     #  (I have checked it once, changing shapes to match CrossEntropyLoss definition)
-                    # loss_sbdh = self.criterion(logits_sbdh.permute(0, 2, 1), target_sbdh)
-                    # loss_umls = torch.tensor(0.0).to(self.device)
+                    loss_sbdh = self.criterion(logits_sbdh.permute(0, 2, 1), target_sbdh)
+                    loss_umls = torch.tensor(0.0).to(self.device)
 
                     # compute predictions
                     predictions_sbdh = np.argmax(logits_sbdh.detach().cpu().numpy(), axis=-1).tolist()
                     predictions_umls = []
+
+                # update loss value
+                total_loss += loss_sbdh + loss_umls
 
                 # update evaluation metrics
                 metrics_sbdh = self.measure_performance(
@@ -208,6 +212,7 @@ class SBDHTrainer():
         for task in eval_results:
             for metric in eval_results[task]:
                 eval_results[task][metric] /= (idx + 1)
+            eval_results[task]['loss'] = total_loss/(idx+1)
 
         return eval_results
 
@@ -319,6 +324,7 @@ class SBDHTrainer():
                     # save info to wandb
                     wandb.log(
                         {
+                            'validation_loss': eval_output['metrics_sbdh']['loss'],
                             'NER_f1-score': eval_output['metrics_sbdh']['f1-score'],
                             'NER_precision': eval_output['metrics_sbdh']['precision'],
                             'NER_recall': eval_output['metrics_sbdh']['recall'],
@@ -352,6 +358,17 @@ class SBDHTrainer():
         test_output = self.evaluate(
             dataloader=dataloader_test,
             model=best_model
+        )
+
+        wandb.log(
+            {
+                'test_loss': test_output['metrics_sbdh']['loss'],
+                'test_NER_f1-score': test_output['metrics_sbdh']['f1-score'],
+                'test_NER_precision': test_output['metrics_sbdh']['precision'],
+                'test_NER_recall': test_output['metrics_sbdh']['recall'],
+                'test_NER_accuracy': test_output['metrics_sbdh']['accuracy'],
+            },
+            step=global_step,
         )
 
         return best_model, best_val_results, test_output
