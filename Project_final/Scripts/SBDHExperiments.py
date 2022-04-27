@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default='best_results',
+        default='bert_results',
         help=("Where to store the final model. "
               "Should contain the source and target tokenizers in the following format: "
               r"output_dir/{source_lang}_tokenizer and output_dir/{target_lang}_tokenizer. "
@@ -218,6 +218,10 @@ def main():
         config=args,
     )
 
+    # make result dir if does not exist
+    if not os.path.exists(args.output_dir):
+        os.mkdir(args.output_dir)
+
     # prepare data
     dataloders = MIMICDataLoader(
         filepath_data=args.filepath_data,
@@ -266,8 +270,6 @@ def main():
 
 
 if __name__ == "__main__":
-
     # set environment variable for gpu index we want to use
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-
     main()

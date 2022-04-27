@@ -1,0 +1,12 @@
+python SBDHExperiments.py \
+--output_dir results_bert-base-uncased \
+--pretrained_model bert-base-uncased \
+--tokenizer bert-base-uncased \
+--batch_size 16 \
+--learning_rate 5e-6 \
+--weight_decay 0.0 \
+--dropout_rate 0.0 \
+--num_train_epochs 10000 \
+--eval_every_steps 100 \
+--max_train_steps 1000 \
+--scheduler_warmup_fraction 0.2
