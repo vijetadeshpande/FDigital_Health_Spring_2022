@@ -8,9 +8,18 @@ import random
 import wandb
 
 # components of study
-from SBDHData import MIMICDataLoader
-from SBDHModel import SBDHModel
-from SBDHTrainer import SBDHTrainer
+from SBDHData import (
+    n2c2DataLoader,
+    MIMICDataLoader
+)
+from SBDHModel import (
+    SBDHModel,
+    n2c2Model,
+)
+from SBDHTrainer import (
+    SBDHTrainer,
+    n2c2Trainer,
+)
 
 def parse_args():
     """
@@ -32,16 +41,24 @@ def parse_args():
 
     # Data arguments
     parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default="n2c2",
+        choices=['hiba', 'n2c2'],
+        help="Path of the preprocessed dataset",
+    )
+
+    parser.add_argument(
         "--filepath_data",
         type=str,
-        default="ahsan_preprocessed.json",
+        default="/Users/vijetadeshpande/Downloads/UMass Lowell - Courses/Spring 2022/Foundations in Digital Health/FDigital_Health_Spring_2022/Project_final/Data/n2c2_preprocessed.json",
         help="Path of the preprocessed dataset",
     )
     parser.add_argument(
         "--filepath_label2id_sbdh",
         type=str,
-        default="label2id_sbdh.json",
-        help="filepath for label_sbdh map",
+        default="n2c2_label2id.json",
+        help="filepath for label-to-labelid map for SBDH labels",
     )
     parser.add_argument(
         "--filepath_label2id_umls",
@@ -51,7 +68,7 @@ def parse_args():
     )
     parser.add_argument(
         "--debug",
-        default=False,
+        default=True,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )
@@ -95,9 +112,15 @@ def parse_args():
     )
     parser.add_argument(
         "--classifier_hidden_size",
-        default=512,
+        default=768,
         type=int,
         help="Hidden size of the classifier",
+    )
+    parser.add_argument(
+        "--binary_classification_threshold",
+        default=0.5,
+        type=float,
+        help="Threshold for binary classification problem",
     )
     parser.add_argument(
         "--max_seq_length",
@@ -159,7 +182,7 @@ def parse_args():
     parser.add_argument(
         "--num_train_epochs",
         type=int,
-        default=1,
+        default=5,
         help="Total number of training epochs to perform.",
     )
     parser.add_argument(
@@ -195,7 +218,7 @@ def parse_args():
     )
     parser.add_argument(
         "--wandb_project",
-        default="Social_Determinant_Detection",
+        default="n2c2_NER",
         help="wandb project name to log metrics to"
     )
 
@@ -223,36 +246,63 @@ def main():
         os.mkdir(args.output_dir)
 
     # prepare data
-    dataloders = MIMICDataLoader(
-        filepath_data=args.filepath_data,
-        filepath_label2id_sbdh=args.filepath_label2id_sbdh,
-        filepath_label2id_umls=args.filepath_label2id_umls,
-        tokenizer_name=args.tokenizer,
-        max_sequence_length=args.max_seq_length,
-        batch_size=args.batch_size,
-        debug=args.debug
-    )
+    if args.dataset_name == 'n2c2':
+        dataloders = n2c2DataLoader(
+            filepath_data=args.filepath_data,
+            filepath_label2id=args.filepath_label2id_sbdh,
+            tokenizer_name=args.tokenizer,
+            max_sequence_length=args.max_seq_length,
+            batch_size=args.batch_size,
+            debug=args.debug
+        )
+    else:
+        dataloders = MIMICDataLoader(
+            filepath_data=args.filepath_data,
+            filepath_label2id_sbdh=args.filepath_label2id_sbdh,
+            filepath_label2id_umls=args.filepath_label2id_umls,
+            tokenizer_name=args.tokenizer,
+            max_sequence_length=args.max_seq_length,
+            batch_size=args.batch_size,
+            debug=args.debug
+        )
 
     # define model
-    model = SBDHModel(
-        pretrained_model=args.pretrained_model,
-        mtl=args.multi_task_learning,
-        num_classes_sbdh=dataloders.num_classes_sbdh,
-        num_classes_umls=dataloders.num_classes_umls,
-        classifier_num_layers=args.classifier_num_layers,
-        classifier_hidden_size=args.classifier_hidden_size,
-    )
+    if args.dataset_name == 'n2c2':
+        model = n2c2Model(
+            pretrained_model=args.pretrained_model,
+            num_classes=dataloders.num_classes_sbdh,
+            classifier_in_features=args.classifier_hidden_size,
+            classification_threshold=args.binary_classification_threshold,
+        )
+    else:
+        model = SBDHModel(
+            pretrained_model=args.pretrained_model,
+            mtl=args.multi_task_learning,
+            num_classes_sbdh=dataloders.num_classes_sbdh,
+            num_classes_umls=dataloders.num_classes_umls,
+            classifier_num_layers=args.classifier_num_layers,
+            classifier_hidden_size=args.classifier_hidden_size,
+        )
     model.to(args.device)
 
     # prepare trainer
-    trainer = SBDHTrainer(
-        device=args.device,
-        optimizer=args.optimizer,
-        learning_rate=args.learning_rate,
-        weight_decay=args.weight_decay,
-        model=model,
-        mtl=args.multi_task_learning,
-    )
+    if args.dataset_name == 'n2c2':
+        trainer = n2c2Trainer(
+            device=args.device,
+            optimizer=args.optimizer,
+            learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
+            model=model,
+        )
+    else:
+        trainer = SBDHTrainer(
+            device=args.device,
+            optimizer=args.optimizer,
+            learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
+            model=model,
+            mtl=args.multi_task_learning,
+        )
 
     # start training
     best_model, validation_results, test_results = trainer.train(
@@ -271,5 +321,5 @@ def main():
 
 if __name__ == "__main__":
     # set environment variable for gpu index we want to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     main()

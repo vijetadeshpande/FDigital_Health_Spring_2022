@@ -267,7 +267,7 @@ class n2c2DataLoader():
         self.id2label = self.get_id2label(self.label2id)
 
         # save number of classes for both labels
-        self.num_classes = self.get_num_classes(self.label2id)
+        self.num_classes_sbdh = self.get_num_classes(self.label2id)
 
         # STEP 3: define tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
@@ -409,6 +409,7 @@ class n2c2Dataset(Dataset):
             max_length=self.max_length,
             padding='max_length',
             is_split_into_words=True, # this is key argument for token classification task
+            return_special_tokens_mask=True,
             #add_prefix_space=True
         )
 
@@ -452,7 +453,13 @@ class n2c2Dataset(Dataset):
 
         #
         for key_ in tokenized:
-            tokenized[key_] = torch.LongTensor(tokenized[key_])
+            if key_ == 'labels':
+                tokenized[key_] = torch.Tensor(tokenized[key_]).float()
+            elif key_ == 'special_tokens_mask':
+                tokenized[key_] = torch.BoolTensor(tokenized[key_])
+            else:
+                tokenized[key_] = torch.LongTensor(tokenized[key_])
+        tokenized['attend_tokens'] = torch.BoolTensor(torch.logical_not(tokenized['special_tokens_mask']))
 
         return tokenized
 
