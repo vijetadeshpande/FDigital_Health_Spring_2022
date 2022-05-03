@@ -1,0 +1,15 @@
+python SBDHExperiments.py \
+--dataset_name n2c2 \
+--filepath_data n2c2_preprocessed.json \
+--filepath_label2id_sbdh n2c2_label2id.json \
+--output_dir n2c2_results_bert-base-uncased \
+--pretrained_model bert-base-uncased \
+--tokenizer bert-base-uncased \
+--batch_size 16 \
+--learning_rate 5e-6 \
+--weight_decay 0.0 \
+--dropout_rate 0.0 \
+--num_train_epochs 10000 \
+--eval_every_steps 100 \
+--max_train_steps 1000 \
+--scheduler_warmup_fraction 0.2
