@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         "--filepath_data",
         type=str,
-        default="/Users/vijetadeshpande/Downloads/UMass Lowell - Courses/Spring 2022/Foundations in Digital Health/FDigital_Health_Spring_2022/Project_final/Data/n2c2_preprocessed.json",
+        default="n2c2_preprocessed.json",
         help="Path of the preprocessed dataset",
     )
     parser.add_argument(
@@ -68,7 +68,8 @@ def parse_args():
     )
     parser.add_argument(
         "--debug",
-        default=True,
+        default=False,
+        type=bool,
         action="store_true",
         help="Whether to use a small subset of the dataset for debugging.",
     )
