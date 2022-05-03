@@ -486,8 +486,8 @@ class n2c2Trainer():
 
             #
             class_wise = classification_report(
-                y_true=labels[example, attend_idx, :],
-                y_pred=predictions[example, attend_idx, :],
+                y_true=labels[example, attend_idx, :].cpu().numpy(),
+                y_pred=predictions[example, attend_idx, :].cpu().numpy(),
                 output_dict=True,
                 zero_division=0,
             )
