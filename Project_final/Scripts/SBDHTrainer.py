@@ -1,12 +1,13 @@
 import torch
-import torch.nn as nn
-from transformers import (AdamW, get_linear_schedule_with_warmup)
-import numpy as np
-from tqdm import tqdm
 import wandb
-from sklearn.metrics import classification_report, confusion_matrix
-from copy import deepcopy
+import json
+import numpy as np
 import pandas as pd
+import torch.nn as nn
+from tqdm import tqdm
+from copy import deepcopy
+from transformers import (AdamW, get_linear_schedule_with_warmup)
+from sklearn.metrics import classification_report, confusion_matrix
 
 class SBDHTrainer():
     """
@@ -23,14 +24,17 @@ class SBDHTrainer():
             learning_rate: float,
             weight_decay: float,
             model: torch.nn.Module,
+            filepath_label2id_sbdh: str,
+            class_weights,
             mtl: bool = False,
             adam_epsilon: float = 1e-8,
             gradient_clip: float = 1,
-            wandb_project_name: str = 'SBDH_Detection'
+            wandb_project_name: str = 'SBDH_Detection',
     ):
 
         # STEP 1: define loss function
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights,
+            dtype=torch.float))
         self.criterion.to(device)
 
         # STEP 2: define optimizer
@@ -66,6 +70,10 @@ class SBDHTrainer():
         self.gradient_clip = gradient_clip
         self.wandb_project_name = wandb_project_name
 
+        with open(filepath_label2id_sbdh, 'r') as f:
+            self.label2id = json.load(f)
+        self.id2label = {v: k for k,v in self.label2id.items()}
+
         return
 
     def get_parameter_groups(
@@ -99,33 +107,11 @@ class SBDHTrainer():
             'accuracy': 0
         }
 
-        for idx, y_hat in enumerate(predictions):
-
-            # get class wise metrics
-            class_wise = classification_report(
-                y_true=labels[idx],
-                y_pred=y_hat,
-                output_dict=True,
-                zero_division=0,
-            )
-
-            # get average value of f1
-            metrics['f1-score'] += class_wise['weighted avg']['f1-score']
-            metrics['precision'] += class_wise['weighted avg']['precision']
-            metrics['recall'] += class_wise['weighted avg']['recall']
-            metrics['accuracy'] += class_wise['accuracy']
-
-
-            # save confusion matrix
-            if save_conf_mat:
-                metrics['confusion_matrix'] = confusion_matrix(
-                    y_true=labels,
-                    y_pred=predictions
+        metrics = classification_report(labels, predictions,
+                output_dict=True, zero_division=0,
+                labels=list(self.id2label.keys()),
+                target_names=list(self.id2label.values()),
                 )
-
-        # take average across batch
-        for metric in metrics:
-            metrics[metric] /= (idx+1)
 
         return metrics
 
@@ -133,6 +119,7 @@ class SBDHTrainer():
             self,
             dataloader,
             model: torch.nn.Module,
+            count: int = None,
     ) -> dict:
         model.eval()
 
@@ -153,6 +140,7 @@ class SBDHTrainer():
         }
 
         total_loss = 0
+        all_preds, all_labels = [], []
         with torch.no_grad():
             for idx, batch in enumerate(dataloader):
 
@@ -186,35 +174,37 @@ class SBDHTrainer():
                     loss_umls = torch.tensor(0.0).to(self.device)
 
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1)\
+                            .tolist()
+                    predictions_flat = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1)\
+                            .flatten().tolist()
                     predictions_umls = []
 
                 # update loss value
                 total_loss += loss_sbdh + loss_umls
 
-                # update evaluation metrics
-                metrics_sbdh = self.measure_performance(
-                    labels=target_sbdh.cpu().detach().numpy().tolist(),
-                    predictions=predictions_sbdh
-                )
-                for metric in eval_results['metrics_sbdh']:
-                    eval_results['metrics_sbdh'][metric] += metrics_sbdh[metric]
+                all_preds.extend(predictions_flat)
+                all_labels.extend(target_sbdh.cpu().detach().flatten().tolist())
 
-                if self.mtl:
-                    metrics_umls = self.measure_performance(
-                        labels=target_umls.cpu().detach().numpy().tolist(),
-                        predictions=predictions_umls
-                    )
-                    for metric in eval_results['metrics_umls']:
-                        eval_results['metrics_umls'][metric] += metrics_umls[metric]
+                if count and idx == count:
+                    break
 
-        # take average across all batches
-        for task in eval_results:
-            for metric in eval_results[task]:
-                eval_results[task][metric] /= (idx + 1)
-            eval_results[task]['loss'] = total_loss/(idx+1)
+            # update evaluation metrics
 
-        return eval_results
+            all_labels = np.array(all_labels)
+            all_preds = np.array(all_preds)
+            ids = all_labels != -100
+
+            preds = all_preds[ids]
+            labels = all_labels[ids]
+
+            metrics_sbdh = self.measure_performance(
+                labels=labels,
+                predictions=preds
+            )
+            loss_sbdh = total_loss/(idx+1)
+
+        return metrics_sbdh, loss_sbdh
 
     def train(
             self,
@@ -285,9 +275,17 @@ class SBDHTrainer():
                     loss_sbdh = self.criterion(logits_sbdh.permute(0, 2, 1), target_sbdh)
                     loss_umls = torch.tensor(0.0).to(self.device)
 
+
                     # compute predictions
-                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1).tolist()
+                    predictions_sbdh = np.argmax(logits_sbdh.cpu().detach().numpy(), axis=-1)
                     predictions_umls = []
+
+                    targets = target_sbdh.flatten().cpu()
+                    ids = targets != -100
+                    preds = predictions_sbdh.flatten()[ids]
+                    targets = targets[ids]
+                    metrics = self.measure_performance(targets,
+                            preds)
 
                 # back propagation
                 loss_sbdh.backward(retain_graph=True)
@@ -301,10 +299,13 @@ class SBDHTrainer():
                 progress_bar.update(1)
 
                 # save info for wandb
+                metric_log = {'train/ner/%s'%k: v['f1-score'] for k,v in metrics.items()
+                        if isinstance(v, dict)}
+                wandb.log(metric_log, step=global_step)
                 wandb.log(
                     {
-                        'NER_training_loss': loss_sbdh,
-                        'NEN_training_loss': loss_umls if loss_umls is not None else 0,
+                        'train/NER_training_loss': loss_sbdh,
+                        'train/NEN_training_loss': loss_umls if loss_umls is not None else 0,
                         'Learning_rate': optimizer.param_groups[0]['lr'],
                         'Epoch': epoch,
                     },
@@ -315,33 +316,21 @@ class SBDHTrainer():
                 if global_step%eval_every_steps == 0:
 
                     # evaluate
-                    eval_output = self.evaluate(
+                    metrics, loss = self.evaluate(
                         dataloader=dataloader_val,
-                        model=model
+                        model=model,
+                        count=50,
                     )
 
-
-                    # save info to wandb
-                    wandb.log(
-                        {
-                            'validation_loss': eval_output['metrics_sbdh']['loss'],
-                            'NER_f1-score': eval_output['metrics_sbdh']['f1-score'],
-                            'NER_precision': eval_output['metrics_sbdh']['precision'],
-                            'NER_recall': eval_output['metrics_sbdh']['recall'],
-                            'NER_accuracy': eval_output['metrics_sbdh']['accuracy'],
-
-                            'NEN_f1-score': eval_output['metrics_umls']['f1-score'],
-                            'NEN_precision': eval_output['metrics_umls']['precision'],
-                            'NEN_recall': eval_output['metrics_umls']['recall'],
-                            'NEN_accuracy': eval_output['metrics_umls']['accuracy'],
-                        },
-                        step=global_step,
-                    )
+                    eval_log = {'val/ner/%s'%k: v['f1-score'] for k,v in metrics.items()
+                            if isinstance(v, dict)}
+                    wandb.log(eval_log, step=global_step)
+                    wandb.log({'val/loss': loss}, step=global_step)
 
                     # update best model
-                    if best_val_f1 < eval_output['metrics_sbdh']['f1-score']:
+                    if best_val_f1 < metrics['macro avg']['f1-score']:
                         best_model = model
-                        best_val_results = eval_output
+                        best_val_results = metrics
 
                 # break if max training steps are reached
                 if global_step >= total_training_steps:
@@ -355,23 +344,17 @@ class SBDHTrainer():
         if best_model is None:
             best_model = model
 
-        test_output = self.evaluate(
+        test_metrics, test_loss = self.evaluate(
             dataloader=dataloader_test,
             model=best_model
         )
 
-        wandb.log(
-            {
-                'test_loss': test_output['metrics_sbdh']['loss'],
-                'test_NER_f1-score': test_output['metrics_sbdh']['f1-score'],
-                'test_NER_precision': test_output['metrics_sbdh']['precision'],
-                'test_NER_recall': test_output['metrics_sbdh']['recall'],
-                'test_NER_accuracy': test_output['metrics_sbdh']['accuracy'],
-            },
-            step=global_step,
-        )
+        test_log = {'test/ner/%s'%k: v['f1-score'] for k,v in test_metrics.items()
+                if isinstance(v, dict)}
+        wandb.log(test_log, step=global_step)
+        wandb.log({'test/loss': test_loss}, step=global_step)
 
-        return best_model, best_val_results, test_output
+        return best_model, best_val_results, test_metrics
 
 class n2c2Trainer():
 

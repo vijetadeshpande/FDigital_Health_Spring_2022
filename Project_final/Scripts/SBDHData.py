@@ -9,6 +9,8 @@ from random import shuffle
 import json
 from transformers import AutoTokenizer
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
+import numpy as np
 
 class MIMICDataLoader():
 
@@ -57,7 +59,8 @@ class MIMICDataLoader():
             tokenizer=self.tokenizer,
             label2id_sbdh=self.label2id_sbdh,
             label2id_umls=self.label2id_umls,
-            max_length=max_sequence_length
+            max_length=max_sequence_length,
+            weight=True
         )
         self.dataset_test = MIMICDataset(
             list_data=data['test'] if not debug else data['test'][0:16],
@@ -147,7 +150,8 @@ class MIMICDataset(Dataset):
             tokenizer,
             label2id_sbdh: dict,
             label2id_umls: dict,
-            max_length: int = 512
+            max_length: int = 512,
+            weight: bool = False
     ):
 
         # attributes
@@ -157,17 +161,32 @@ class MIMICDataset(Dataset):
         self.label2id_sbdh = label2id_sbdh
         self.label2id_umls = label2id_umls
 
+        self.processed_data = [self.preprocess(x) for x in list_data]
+
+        if weight:
+            # labels = [y for x in self.processed_data for y in x['labels_sbdh'].tolist() if y != -100]
+            # self.weights = compute_class_weight(class_weight='balanced',
+            #     classes=list(label2id_sbdh.values()),
+            #     y=labels)
+            self.weights = [0.07394112, 7.37797567, 6.11101184, 9.95677048, 7.04823868,
+                    6.68765348, 8.07254014, 5.77221077, 9.26809516, 9.22449428,
+                    23.03234143, 18.58010107, 19.98118207, 9.74401193, 46.79761337]
+
         return
 
     def __len__(self):
         """Returns total length or total data instances in the input data"""
         return self.data.__len__()
 
+
     def __getitem__(self, item) -> dict:
+        return self.processed_data[item]
+
+    def preprocess(self, example) -> dict:
         """This is the main function of the class. Returns tokenized form of the called item"""
 
         # get the 'item' index data instance
-        example = self.data[item]
+        # example = self.data[item]
 
         # tokenize the example
         tokenized = self.tokenizer.encode_plus(

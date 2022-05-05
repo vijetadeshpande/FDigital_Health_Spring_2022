@@ -189,7 +189,7 @@ def parse_args():
     parser.add_argument(
         "--eval_every_steps",
         type=int,
-        default=4,
+        default=50,
         help="Perform evaluation every n network updates.",
     )
     parser.add_argument(
@@ -208,7 +208,7 @@ def parse_args():
     parser.add_argument(
         "--scheduler_warmup_fraction",
         type=float,
-        default=0.2,
+        default=0.1,
         help="Number of steps for the warmup in the lr scheduler."
     )
     parser.add_argument(
@@ -224,6 +224,11 @@ def parse_args():
     )
 
     args = parser.parse_args()
+    args.tokenizer = args.pretrained_model
+    if args.dataset_name == 'hiba':
+        args.filepath_data = 'preprocessed_data_version_2.json'
+        args.filepath_label2id_sbdh = 'label2id_sbdh.json'
+        args.filepath_label2id_umls = 'label2id_umls.json'
 
     return args
 
@@ -303,6 +308,8 @@ def main():
             weight_decay=args.weight_decay,
             model=model,
             mtl=args.multi_task_learning,
+            filepath_label2id_sbdh=args.filepath_label2id_sbdh,
+            class_weights=dataloders.dataset_train.weights
         )
 
     # start training
