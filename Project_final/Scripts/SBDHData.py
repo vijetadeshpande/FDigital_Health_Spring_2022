@@ -31,6 +31,8 @@ class MIMICDataLoader():
             data = json.load(f)
         if 'train' not in data:
             data = self.slice_data(data)
+        if 'validation' not in data:
+            data['validation'] = data['test']
 
         # STEP 2: in addition to data, we need label maps i.e. a dict to convert
         # label text to an integer and an integer back to it's class text
@@ -164,20 +166,43 @@ class MIMICDataset(Dataset):
         self.processed_data = [self.preprocess(x) for x in list_data]
 
         if weight:
-            # labels = [y for x in self.processed_data for y in x['labels_sbdh'].tolist() if y != -100]
-            # self.weights = compute_class_weight(class_weight='balanced',
-            #     classes=list(label2id_sbdh.values()),
-            #     y=labels)
-            self.weights = [0.07394112, 7.37797567, 6.11101184, 9.95677048, 7.04823868,
-                    6.68765348, 8.07254014, 5.77221077, 9.26809516, 9.22449428,
-                    23.03234143, 18.58010107, 19.98118207, 9.74401193, 46.79761337]
+            #all_labels = self.flattened_labels(self.processed_data)
+            #self.weights = compute_class_weight(
+            #    class_weight='balanced',
+            #    classes=list(label2id_sbdh.values()),
+            #    y=all_labels
+            #)
+
+            # class weights for n2c2
+            self.weights = [2.13149541e+00, 3.34708091e+00, 1.11385559e+00, 6.28355339e+00,
+                       1.85032935e+00, 3.71897879e+00, 2.11020707e+00, 1.80778167e+01,
+                       2.08162052e+00, 8.82650581e+00, 3.68251822e+00, 1.02440961e+02,
+                       1.17176836e+00, 1.16570749e+01, 3.25679357e+00, 5.63425287e+01,
+                       5.54188807e+01, 9.94279919e+01, 6.31878827e+00, 7.34902549e+01,
+                       6.47863496e-01, 4.00539304e+00, 2.23138728e+00, 8.14590777e+00,
+                       1.56724697e+00, 7.52906843e+00, 1.08734375e+00, 1.31029137e+01,
+                       5.16351264e-02]
+
+            # class weights for hiba
+            wts_hiba = [0.07394112,  7.37797567,  6.11101184,  9.95677048,  7.04823868,
+                        6.68765348,  8.07254014,  5.77221077,  9.26809516,  9.22449428,
+                       23.03234143, 18.58010107, 19.98118207,  9.74401193, 46.79761337]
 
         return
+
+    def flattened_labels(self, list_in):
+
+        all_labels = []
+        for instance in list_in:
+            for i in instance['labels_sbdh'].numpy().tolist():
+                if not i == -100:
+                    all_labels.append(i)
+
+        return all_labels
 
     def __len__(self):
         """Returns total length or total data instances in the input data"""
         return self.data.__len__()
-
 
     def __getitem__(self, item) -> dict:
         return self.processed_data[item]

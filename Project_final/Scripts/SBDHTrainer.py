@@ -33,8 +33,10 @@ class SBDHTrainer():
     ):
 
         # STEP 1: define loss function
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights,
-            dtype=torch.float))
+        self.criterion = nn.CrossEntropyLoss(
+            weight=torch.tensor(class_weights,dtype=torch.float),
+            ignore_index=-100,
+        )
         self.criterion.to(device)
 
         # STEP 2: define optimizer

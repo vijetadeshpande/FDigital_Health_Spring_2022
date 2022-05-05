@@ -229,6 +229,12 @@ def parse_args():
         args.filepath_data = 'preprocessed_data_version_2.json'
         args.filepath_label2id_sbdh = 'label2id_sbdh.json'
         args.filepath_label2id_umls = 'label2id_umls.json'
+    elif args.dataset_name == 'n2c2':
+        args.filepath_data = 'processed_n2c2_flat_entities.json'
+        args.filepath_label2id_sbdh = 'n2c2_label2id.json'
+        args.filepath_label2id_umls = 'n2c2_label2id.json'
+        # using code written for Hiba's data for flat entity recognition version of the n2c2 data
+        args.dataset_name = 'hiba'
 
     return args
 
