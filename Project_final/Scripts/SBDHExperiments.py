@@ -183,13 +183,13 @@ def parse_args():
     parser.add_argument(
         "--num_train_epochs",
         type=int,
-        default=5,
+        default=1000,
         help="Total number of training epochs to perform.",
     )
     parser.add_argument(
         "--eval_every_steps",
         type=int,
-        default=50,
+        default=100,
         help="Perform evaluation every n network updates.",
     )
     parser.add_argument(
